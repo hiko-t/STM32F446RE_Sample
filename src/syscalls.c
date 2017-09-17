@@ -55,12 +55,12 @@
 
 
 /* Variables */
-//#undef errno
+#undef errno
 extern int errno;
 extern int __io_putchar(int ch) __attribute__((weak));
 extern int __io_getchar(void) __attribute__((weak));
 
-//register char * stack_ptr asm("sp");
+register char * stack_ptr asm("sp");
 
 char *__env[1] = { 0 };
 char **environ = __env;
@@ -110,7 +110,6 @@ int _write(int file, char *ptr, int len)
 	}
 	return len;
 }
-/*
 caddr_t _sbrk(int incr)
 {
 	extern char end asm("end");
@@ -133,7 +132,7 @@ caddr_t _sbrk(int incr)
 
 	return (caddr_t) prev_heap_end;
 }
-*/
+
 int _close(int file)
 {
 	return -1;
