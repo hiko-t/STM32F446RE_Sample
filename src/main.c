@@ -14,7 +14,8 @@
 
 /* ======== 定数 ======== */
 #define I2C_ADDRESS 0x45 // 温湿度センサーのI2Cアドレス
-#define DATA_SIZE 256
+#define DATA_SIZE 2
+#define RCC_OSCILLATORTYPE RCC_OSCILLATORTYPE_HSI
 
 static void Error_Handler(void)
 {
@@ -50,6 +51,7 @@ static void Error_Handler(void)
   */
 void SystemClock_Config(void)
 {
+	// RCC Reset and Clock Control
 	RCC_ClkInitTypeDef RCC_ClkInitStruct;
 	RCC_OscInitTypeDef RCC_OscInitStruct;
 	HAL_StatusTypeDef ret = HAL_OK;
@@ -63,39 +65,38 @@ void SystemClock_Config(void)
 	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
 	/* Enable HSI Oscillator and activate PLL with HSI as source */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE;
+	RCC_OscInitStruct.HSEState            = RCC_HSE_OFF;
+	RCC_OscInitStruct.HSIState            = RCC_HSI_ON;
+	RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.PLL.PLLState        = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLR            = 6; // 2 - 7を設定
 	RCC_OscInitStruct.HSICalibrationValue = 0x10;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLSource       = RCC_PLLSOURCE_HSI;
 	RCC_OscInitStruct.PLL.PLLM = 16;
 	RCC_OscInitStruct.PLL.PLLN = 360;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
 	RCC_OscInitStruct.PLL.PLLQ = 7;
-	RCC_OscInitStruct.PLL.PLLR = 6;
-	if(HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-	{
+	if(HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
 		Error_Handler();
 	}
 
 	/* Activate the OverDrive to reach the 180 MHz Frequency */
 	ret = HAL_PWREx_EnableOverDrive();
-	if(ret != HAL_OK)
-	{
+	if(ret != HAL_OK) {
 		while(1) { ; }
 	}
 	/* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
 	 clocks dividers */
-	RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.ClockType      = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+	RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-	if(HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+	if(HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK)
 	{
 		Error_Handler();
 	}
-
 }
 
 void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c)
@@ -108,14 +109,14 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c)
 
   /*##-2- Configure peripheral GPIO ##########################################*/
   /* I2C TX GPIO pin configuration  */
-  GPIO_InitStruct.Pin = GPIO_PIN_8; // SCL
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Pin       = GPIO_PIN_8; // SCL
+  GPIO_InitStruct.Mode      = GPIO_MODE_AF_OD;
+  GPIO_InitStruct.Pull      = GPIO_PULLUP;
+  GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = GPIO_PIN_9; // SDA
+  GPIO_InitStruct.Pin       = GPIO_PIN_9; // SDA
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*##-3- Enable I2C peripheral Clock ########################################*/
@@ -129,10 +130,10 @@ void HAL_I2C_Generate(I2C_HandleTypeDef *hi2c) {
 	hi2c->Init.AddressingMode  = I2C_ADDRESSINGMODE_7BIT;
 	hi2c->Init.ClockSpeed      = 400000;
 	hi2c->Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-	hi2c->Init.DutyCycle       = I2C_DUTYCYCLE_16_9;
+	hi2c->Init.DutyCycle       = I2C_DUTYCYCLE_2;
 	hi2c->Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
 	hi2c->Init.NoStretchMode   = I2C_NOSTRETCH_DISABLE;
-	hi2c->Init.OwnAddress1     = I2C_ADDRESS;
+	hi2c->Init.OwnAddress1     = 0;
 	hi2c->Init.OwnAddress2     = 0;
 
 	if (HAL_I2C_Init(hi2c) != HAL_OK) {
@@ -161,7 +162,19 @@ int main(void)
 	HAL_I2C_Generate(&i2c_handle);
 	HAL_I2C_MspInit(&i2c_handle);
 
+//	rec_data[0] = 0x24;
+//	rec_data[1] = 0x00;
+//	while(HAL_I2C_Master_Transmit(&i2c_handle, (uint16_t)I2C_ADDRESS, (uint8_t*)rec_data, rec_size, 10000)!= HAL_OK) {
+//		if (HAL_I2C_GetError(&i2c_handle) != HAL_I2C_ERROR_AF) {
+//			Error_Handler();
+//		}
+//	}
+	HAL_I2C_GetMode(&i2c_handle);
+	HAL_I2C_GetState(&i2c_handle);
+
 	// I2Cマスター受信
+	rec_data[0] = 0x00;
+	rec_data[1] = 0x00;
 	while(HAL_I2C_Master_Receive(&i2c_handle, (uint16_t)I2C_ADDRESS, (uint8_t *)rec_data, rec_size, 10000) != HAL_OK) {
 		if (HAL_I2C_GetError(&i2c_handle) != HAL_I2C_ERROR_AF) {
 			// Error
